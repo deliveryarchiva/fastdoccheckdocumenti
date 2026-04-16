@@ -202,11 +202,13 @@ def api_search(
     file_match:      str = "partial",
     date_from:       str = "",
     date_to:         str = "",
+    anno:            str = "",
+    mese:            str = "",
     page:            int = 1,
     per_page:        int = 50,
     user=Depends(get_current_user),
 ):
-    has_filter = any([ragione_sociale, piva, nome_file, date_from, date_to])
+    has_filter = any([ragione_sociale, piva, nome_file, date_from, date_to, anno, mese])
 
     if not db_loaded:
         return {
@@ -233,6 +235,8 @@ def api_search(
         file_match=file_match,
         date_from=date_from or None,
         date_to=date_to or None,
+        anno=anno or None,
+        mese=mese or None,
     )
 
     total    = len(results)
@@ -250,6 +254,13 @@ def api_search(
         "results":  results[start: start + per_page],
         "stats":    db_stats,
     }
+
+@app.get("/api/filters")
+def api_filters(user=Depends(get_current_user)):
+    """Return sorted list of unique years and months present in the dataset."""
+    years  = sorted({r["data_doc"][:4] for r in db_records if r["data_doc"]}, reverse=True)
+    months = sorted({r["data_doc"][5:7] for r in db_records if r["data_doc"]})
+    return {"years": years, "months": months}
 
 @app.get("/api/stats")
 def api_stats(user=Depends(get_current_user)):

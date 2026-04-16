@@ -77,6 +77,11 @@ def load_data(excel_path: str) -> list:
                 with open(cache_path, "rb") as f:
                     records = pickle.load(f)
                 logger.info(f"Cache loaded in {time.time()-t0:.1f}s — {len(records):,} records")
+                # Migrate stale records that lack anno_mese (cache built before this field was added)
+                for r in records:
+                    if "anno_mese" not in r:
+                        dd = r.get("data_doc", "")
+                        r["anno_mese"] = dd[:7].replace("-", "/") if len(dd) >= 7 else ""
                 return records
             except Exception as e:
                 logger.warning(f"Cache load failed ({e}), reloading from Excel")
@@ -178,6 +183,7 @@ def _build_records(rows_archiva: list, rows_postel: list) -> list:
             "piva":           pv,
             "ragione_sociale": rs,
             "data_doc":       dt.isoformat() if dt else "",
+            "anno_mese":      f"{dt.year:04d}/{dt.month:02d}" if dt else "",
             "in_archiva":     "SI",
             "in_postel":      "NO",
         }
@@ -207,6 +213,7 @@ def _build_records(rows_archiva: list, rows_postel: list) -> list:
                 "piva":           pv,
                 "ragione_sociale": rs,
                 "data_doc":       dt.isoformat() if dt else "",
+                "anno_mese":      f"{dt.year:04d}/{dt.month:02d}" if dt else "",
                 "in_archiva":     "NO",
                 "in_postel":      "SI",
             }
@@ -229,12 +236,16 @@ def search_records(
     file_match: str = "partial",
     date_from: str = None,
     date_to: str = None,
+    anno: str = None,
+    mese: str = None,
 ) -> list:
     rs_q  = ragione_sociale.strip().lower() if ragione_sociale else None
     pv_q  = piva.strip().lower() if piva else None
     nf_q  = nome_file.strip().lower() if nome_file else None
     dt_f  = date_from.strip() if date_from else None
     dt_t  = date_to.strip() if date_to else None
+    anno_q = anno.strip().zfill(4) if anno else None
+    mese_q = mese.strip().zfill(2) if mese else None
 
     results = []
     for r in records:
@@ -250,13 +261,19 @@ def search_records(
             else:
                 if nf_q not in fn:
                     continue
+        dd = r["data_doc"]   # "YYYY-MM-DD" or ""
         if dt_f or dt_t:
-            dd = r["data_doc"]
             if not dd:
                 continue
             if dt_f and dd < dt_f:
                 continue
             if dt_t and dd > dt_t:
+                continue
+        if anno_q:
+            if not dd or not dd.startswith(anno_q):
+                continue
+        if mese_q:
+            if not dd or dd[5:7] != mese_q:
                 continue
         results.append(r)
     return results
