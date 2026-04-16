@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Archiva File DB – Admin</title>
+<style>
+:root{
+  --primary:#00417A;--navy:#1B3A6B;--accent:#1E8BC3;
+  --bg:#F4F7FA;--bg-alt:#EBF4FD;--border:#D0D8E4;
+  --text:#262626;--muted:#6B7A93;--white:#fff;
+  --green:#1A9E5C;--orange:#E8820C;--red:#c0392b;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+
+header{background:var(--primary);color:#fff;padding:0 24px;height:56px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,.25);position:sticky;top:0;z-index:100}
+.h-brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1rem;flex:1}
+.h-icon{width:32px;height:32px;background:rgba(255,255,255,.15);border-radius:7px;display:flex;align-items:center;justify-content:center}
+.h-icon svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.h-sub{font-size:.75rem;font-weight:400;opacity:.7;margin-top:1px}
+.h-user{font-size:.82rem;opacity:.85;white-space:nowrap}
+.h-actions{display:flex;gap:8px;align-items:center}
+.h-btn{background:rgba(255,255,255,.15);border:none;color:#fff;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:.78rem;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:.15s}
+.h-btn:hover{background:rgba(255,255,255,.28)}
+
+.page{max-width:1100px;margin:0 auto;padding:24px 20px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.full{grid-column:1/-1}
+
+.card{background:var(--white);border-radius:10px;border:1px solid var(--border);padding:22px 22px 18px}
+.card h2{font-size:.95rem;font-weight:700;color:var(--navy);margin-bottom:18px;display:flex;align-items:center;gap:8px;border-bottom:2px solid var(--bg);padding-bottom:10px}
+.card h2 svg{flex-shrink:0}
+
+/* Upload zone */
+.upload-zone{border:2.5px dashed var(--border);border-radius:9px;padding:32px 20px;text-align:center;cursor:pointer;transition:.2s;position:relative}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:var(--bg-alt)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-zone svg{width:36px;height:36px;margin:0 auto 10px;display:block;color:var(--muted)}
+.upload-zone .uz-text{font-size:.88rem;color:var(--muted)}
+.upload-zone .uz-file{font-size:.82rem;color:var(--accent);font-weight:600;margin-top:6px}
+
+.btn-primary{padding:9px 20px;background:var(--primary);color:#fff;border:none;border-radius:7px;font-size:.87rem;font-weight:600;cursor:pointer;transition:.15s;width:100%;margin-top:12px}
+.btn-primary:hover{background:var(--navy)}
+.btn-primary:disabled{opacity:.5;cursor:default}
+.btn-outline{padding:8px 16px;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);border-radius:7px;font-size:.83rem;cursor:pointer;transition:.15s;width:100%;margin-top:8px}
+.btn-outline:hover{background:var(--bg-alt);color:var(--text);border-color:var(--accent)}
+
+/* DB status */
+.db-stat{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bg)}
+.db-stat:last-child{border:none}
+.db-stat .k{font-size:.8rem;color:var(--muted)}
+.db-stat .v{font-size:.85rem;font-weight:600;color:var(--text)}
+
+/* Users table */
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+thead th{background:var(--navy);color:#fff;padding:9px 11px;text-align:left;font-weight:600;font-size:.77rem}
+tbody tr{border-bottom:1px solid var(--border)}
+tbody tr:last-child{border:none}
+tbody tr:hover{background:var(--bg-alt)}
+td{padding:9px 11px}
+.badge-role{display:inline-block;padding:1px 8px;border-radius:20px;font-size:.72rem;font-weight:700}
+.badge-role.admin{background:#d4f5e4;color:#127a40}
+.badge-role.user{background:#e4edfa;color:#1B3A6B}
+.td-actions{display:flex;gap:6px}
+.btn-sm{padding:4px 10px;border:1.5px solid var(--border);border-radius:5px;cursor:pointer;font-size:.75rem;background:#fff;transition:.12s}
+.btn-sm:hover{background:var(--bg-alt)}
+.btn-sm.danger{border-color:#f8b4b4;color:var(--red)}
+.btn-sm.danger:hover{background:#fff0f0}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:200;display:none}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:12px;padding:28px 26px;width:100%;max-width:420px;box-shadow:0 8px 40px rgba(0,0,0,.2)}
+.modal h3{font-size:1rem;font-weight:700;color:var(--navy);margin-bottom:18px}
+.field{margin-bottom:14px}
+.field label{font-size:.78rem;font-weight:600;color:var(--navy);display:block;margin-bottom:4px}
+.field input,.field select{width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:.86rem;outline:none;transition:.2s}
+.field input:focus,.field select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(30,139,195,.1)}
+.modal-actions{display:flex;gap:8px;margin-top:20px}
+.modal-actions .btn-save{flex:1;padding:9px;background:var(--primary);color:#fff;border:none;border-radius:7px;font-weight:600;cursor:pointer;font-size:.87rem}
+.modal-actions .btn-save:hover{background:var(--navy)}
+.modal-actions .btn-cancel{padding:9px 16px;border:1.5px solid var(--border);background:var(--bg);border-radius:7px;cursor:pointer;font-size:.87rem}
+
+.alert{padding:10px 14px;border-radius:7px;font-size:.82rem;margin-top:10px}
+.alert.ok{background:#d4f5e4;border:1px solid #7ddcaa;color:#127a40}
+.alert.err{background:#fff0f0;border:1px solid #f8b4b4;color:var(--red)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-brand">
+    <div class="h-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+    <div><div>Archiva File DB</div><div class="h-sub">Pannello Admin</div></div>
+  </div>
+  <span class="h-user" id="userBadge"></span>
+  <div class="h-actions">
+    <a href="/" class="h-btn">← Ricerca</a>
+    <button class="h-btn" onclick="doLogout()">Esci</button>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- Upload / DB status -->
+  <div class="card">
+    <h2>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Carica Database Excel
+    </h2>
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" accept=".xlsx" id="fileInput" onchange="onFileChange(event)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M12 8v8"/></svg>
+      <div class="uz-text">Trascina qui il file <strong>database.xlsx</strong><br>oppure clicca per selezionare</div>
+      <div class="uz-file" id="fileName"></div>
+    </div>
+    <button class="btn-primary" id="btnUpload" onclick="doUpload()" disabled>Carica e analizza</button>
+    <button class="btn-outline" onclick="doReload()">↻ Ricarica dati esistenti</button>
+    <div id="uploadAlert"></div>
+  </div>
+
+  <!-- DB Status -->
+  <div class="card">
+    <h2>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      Stato Database
+    </h2>
+    <div id="dbStatusContent">
+      <div class="db-stat"><span class="k">Stato</span><span class="v" id="s-stato">–</span></div>
+      <div class="db-stat"><span class="k">Documenti totali</span><span class="v" id="s-total">–</span></div>
+      <div class="db-stat"><span class="k">Presenti in Archiva</span><span class="v" id="s-archiva">–</span></div>
+      <div class="db-stat"><span class="k">Presenti in Postel</span><span class="v" id="s-postel">–</span></div>
+      <div class="db-stat"><span class="k">Presenti in entrambi</span><span class="v" id="s-entrambi">–</span></div>
+      <div class="db-stat"><span class="k">Solo Postel (non in Archiva)</span><span class="v" id="s-solo-postel" style="color:var(--orange)">–</span></div>
+      <div class="db-stat"><span class="k">Solo Archiva (non in Postel)</span><span class="v" id="s-solo-archiva">–</span></div>
+    </div>
+  </div>
+
+  <!-- Users -->
+  <div class="card full">
+    <h2 style="justify-content:space-between">
+      <span style="display:flex;align-items:center;gap:8px">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Gestione Utenti
+      </span>
+      <button class="btn-sm" onclick="openModal()" style="font-size:.8rem;padding:5px 12px;background:var(--primary);color:#fff;border:none;border-radius:6px">+ Nuovo utente</button>
+    </h2>
+    <div style="overflow-x:auto">
+      <table id="usersTable">
+        <thead><tr><th>Username</th><th>Nome</th><th>Ruolo</th><th>Titolo</th><th>Azioni</th></tr></thead>
+        <tbody id="usersBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Change password -->
+  <div class="card">
+    <h2>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      Cambia Password
+    </h2>
+    <div class="field"><label>Password attuale</label><input type="password" id="cp-old"></div>
+    <div class="field"><label>Nuova password</label><input type="password" id="cp-new"></div>
+    <div class="field"><label>Conferma nuova password</label><input type="password" id="cp-conf"></div>
+    <button class="btn-primary" onclick="doChangePassword()">Aggiorna password</button>
+    <div id="cpAlert"></div>
+  </div>
+
+</div>
+
+<!-- User modal -->
+<div class="modal-bg" id="modalBg" onclick="closeModal(event)">
+  <div class="modal">
+    <h3 id="modalTitle">Nuovo utente</h3>
+    <div class="field"><label>Username</label><input id="m-username" placeholder="nome.cognome"></div>
+    <div class="field"><label>Nome completo</label><input id="m-nome" placeholder="Nome Cognome"></div>
+    <div class="field"><label>Titolo professionale</label><input id="m-role" placeholder="es. Project Manager"></div>
+    <div class="field"><label>Ruolo</label>
+      <select id="m-ruolo"><option value="user">User</option><option value="admin">Admin</option></select>
+    </div>
+    <div class="field"><label>Password <span id="m-pwd-label">(obbligatoria)</span></label><input type="password" id="m-password" placeholder="••••••••"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="document.getElementById('modalBg').classList.remove('open')">Annulla</button>
+      <button class="btn-save" onclick="saveUser()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOKEN_KEY='archiva_token', USER_KEY='archiva_user';
+function getToken(){ return sessionStorage.getItem(TOKEN_KEY); }
+function authH(){ return {'Content-Type':'application/json','Authorization':'Bearer '+(getToken()||'')}; }
+async function apiFetch(url,opts={}){
+  const isForm=opts.body instanceof FormData;
+  const headers=isForm?{'Authorization':'Bearer '+(getToken()||'')}:authH();
+  const r=await fetch(url,{...opts,headers});
+  if(r.status===401){sessionStorage.clear();window.location.href='/login';return null;}
+  return r;
+}
+async function doLogout(){
+  await fetch('/api/auth/logout',{method:'POST',headers:authH()});
+  sessionStorage.clear(); window.location.href='/login';
+}
+async function authInit(){
+  const token=getToken();
+  if(!token){window.location.href='/login';return null;}
+  const r=await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+token}});
+  if(!r.ok){sessionStorage.clear();window.location.href='/login';return null;}
+  const {user}=await r.json();
+  document.getElementById('userBadge').textContent=user.nome||user.username;
+  if(user.ruolo!=='admin'){window.location.href='/';return null;}
+  return user;
+}
+
+// ── DB Status ──────────────────────────────────────────────────────────────
+async function loadDbStatus(){
+  const r=await apiFetch('/api/admin/db-status');
+  if(!r) return;
+  const d=await r.json();
+  const fmt=n=>n!=null?n.toLocaleString('it-IT'):'–';
+  document.getElementById('s-stato').innerHTML=d.loaded
+    ?'<span style="color:var(--green);font-weight:700">✓ Caricato</span>'
+    :'<span style="color:var(--red)">✗ Non caricato</span>';
+  if(d.stats){
+    document.getElementById('s-total').textContent=fmt(d.stats.total);
+    document.getElementById('s-archiva').textContent=fmt(d.stats.in_archiva);
+    document.getElementById('s-postel').textContent=fmt(d.stats.in_postel);
+    document.getElementById('s-entrambi').textContent=fmt(d.stats.entrambi);
+    document.getElementById('s-solo-postel').textContent=fmt(d.stats.solo_postel);
+    document.getElementById('s-solo-archiva').textContent=fmt(d.stats.solo_archiva);
+  }
+}
+
+// ── Upload ─────────────────────────────────────────────────────────────────
+let selectedFile=null;
+function onFileChange(e){
+  selectedFile=e.target.files[0];
+  document.getElementById('fileName').textContent=selectedFile?selectedFile.name:'';
+  document.getElementById('btnUpload').disabled=!selectedFile;
+}
+async function doUpload(){
+  if(!selectedFile) return;
+  const btn=document.getElementById('btnUpload');
+  btn.disabled=true; btn.textContent='Caricamento…';
+  setAlert('uploadAlert','Caricamento e analisi in corso, attendere…','ok');
+  try{
+    const fd=new FormData(); fd.append('file',selectedFile);
+    const r=await apiFetch('/api/admin/upload',{method:'POST',body:fd});
+    const d=await r.json();
+    if(d.ok){
+      setAlert('uploadAlert',d.message,'ok');
+      await loadDbStatus();
+    } else setAlert('uploadAlert',d.detail||'Errore','err');
+  }catch(ex){ setAlert('uploadAlert',ex.message,'err'); }
+  btn.disabled=false; btn.textContent='Carica e analizza';
+}
+async function doReload(){
+  setAlert('uploadAlert','Ricaricamento in corso…','ok');
+  const r=await apiFetch('/api/admin/reload',{method:'POST'});
+  const d=await r.json();
+  setAlert('uploadAlert',d.message,d.ok?'ok':'err');
+  if(d.ok) await loadDbStatus();
+}
+
+// ── Users ──────────────────────────────────────────────────────────────────
+let editingUser=null;
+async function loadUsers(){
+  const r=await apiFetch('/api/admin/users');
+  if(!r) return;
+  const users=await r.json();
+  const tbody=document.getElementById('usersBody');
+  const me=JSON.parse(sessionStorage.getItem(USER_KEY)||'{}');
+  tbody.innerHTML=Object.values(users).map(u=>`
+    <tr>
+      <td><code>${u.username}</code></td>
+      <td>${u.nome}</td>
+      <td><span class="badge-role ${u.ruolo}">${u.ruolo}</span></td>
+      <td style="color:var(--muted);font-size:.79rem">${u.role||'–'}</td>
+      <td><div class="td-actions">
+        <button class="btn-sm" onclick='editUser(${JSON.stringify(u)})'>Modifica</button>
+        ${u.username!==me.username?`<button class="btn-sm danger" onclick="deleteUser('${u.username}')">Elimina</button>`:''}
+      </div></td>
+    </tr>`).join('');
+}
+function openModal(){
+  editingUser=null;
+  document.getElementById('modalTitle').textContent='Nuovo utente';
+  document.getElementById('m-pwd-label').textContent='(obbligatoria)';
+  ['m-username','m-nome','m-role','m-password'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('m-ruolo').value='user';
+  document.getElementById('m-username').disabled=false;
+  document.getElementById('modalBg').classList.add('open');
+}
+function editUser(u){
+  editingUser=u;
+  document.getElementById('modalTitle').textContent='Modifica utente';
+  document.getElementById('m-pwd-label').textContent='(lascia vuoto per non cambiare)';
+  document.getElementById('m-username').value=u.username; document.getElementById('m-username').disabled=true;
+  document.getElementById('m-nome').value=u.nome||'';
+  document.getElementById('m-role').value=u.role||'';
+  document.getElementById('m-ruolo').value=u.ruolo||'user';
+  document.getElementById('m-password').value='';
+  document.getElementById('modalBg').classList.add('open');
+}
+function closeModal(e){ if(e.target===document.getElementById('modalBg')) document.getElementById('modalBg').classList.remove('open'); }
+async function saveUser(){
+  const body={
+    username:document.getElementById('m-username').value.trim(),
+    nome:document.getElementById('m-nome').value.trim(),
+    role:document.getElementById('m-role').value.trim(),
+    ruolo:document.getElementById('m-ruolo').value,
+    password:document.getElementById('m-password').value,
+  };
+  const url=editingUser?`/api/admin/users/${editingUser.username}`:'/api/admin/users';
+  const method=editingUser?'PUT':'POST';
+  const r=await apiFetch(url,{method,body:JSON.stringify(body)});
+  if(r&&r.ok){ document.getElementById('modalBg').classList.remove('open'); loadUsers(); }
+}
+async function deleteUser(u){
+  if(!confirm(`Eliminare utente "${u}"?`)) return;
+  await apiFetch(`/api/admin/users/${u}`,{method:'DELETE'});
+  loadUsers();
+}
+
+// ── Change password ────────────────────────────────────────────────────────
+async function doChangePassword(){
+  const old=document.getElementById('cp-old').value;
+  const nw=document.getElementById('cp-new').value;
+  const conf=document.getElementById('cp-conf').value;
+  if(nw!==conf){ setAlert('cpAlert','Le password non coincidono','err'); return; }
+  if(nw.length<4){ setAlert('cpAlert','Password troppo corta (min 4 caratteri)','err'); return; }
+  const r=await apiFetch('/api/auth/change-password',{method:'POST',body:JSON.stringify({currentPassword:old,newPassword:nw})});
+  const d=await r.json();
+  if(d.ok){ setAlert('cpAlert','Password aggiornata','ok'); ['cp-old','cp-new','cp-conf'].forEach(id=>document.getElementById(id).value=''); }
+  else setAlert('cpAlert',d.detail||'Errore','err');
+}
+
+function setAlert(id,msg,type){
+  const el=document.getElementById(id);
+  el.textContent=msg; el.className='alert '+type;
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(async()=>{
+  const user=await authInit();
+  if(!user) return;
+  loadUsers();
+  loadDbStatus();
+})();
+</script>
+</body>
+</html>

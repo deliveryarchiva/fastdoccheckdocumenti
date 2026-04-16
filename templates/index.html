@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Archiva File DB – Ricerca</title>
+<style>
+:root{
+  --primary:#00417A;--navy:#1B3A6B;--accent:#1E8BC3;--mid:#1C6BB0;
+  --bg:#F4F7FA;--bg-alt:#EBF4FD;--border:#D0D8E4;
+  --text:#262626;--muted:#6B7A93;--white:#fff;
+  --green:#1A9E5C;--orange:#E8820C;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ─── Header ─── */
+header{background:var(--primary);color:#fff;padding:0 24px;height:56px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,.25);position:sticky;top:0;z-index:100}
+.h-brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1rem;flex:1}
+.h-icon{width:32px;height:32px;background:rgba(255,255,255,.15);border-radius:7px;display:flex;align-items:center;justify-content:center}
+.h-icon svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.h-sub{font-size:.75rem;font-weight:400;opacity:.7;margin-top:1px}
+.h-user{font-size:.82rem;opacity:.85;white-space:nowrap}
+.h-actions{display:flex;gap:8px;align-items:center}
+.h-btn{background:rgba(255,255,255,.15);border:none;color:#fff;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:.78rem;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:.15s}
+.h-btn:hover{background:rgba(255,255,255,.28)}
+
+/* ─── Layout ─── */
+.page{max-width:1400px;margin:0 auto;padding:24px 20px}
+
+/* ─── Stats bar ─── */
+.stats-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--white);border-radius:9px;padding:14px 16px;border:1px solid var(--border);text-align:center}
+.stat-card .val{font-size:1.4rem;font-weight:700;color:var(--primary);line-height:1}
+.stat-card .lbl{font-size:.73rem;color:var(--muted);margin-top:4px}
+.stat-card.green .val{color:var(--green)}
+.stat-card.orange .val{color:var(--orange)}
+.stat-card.accent .val{color:var(--accent)}
+
+/* ─── Search panel ─── */
+.search-panel{background:var(--white);border-radius:10px;border:1px solid var(--border);padding:20px 22px;margin-bottom:20px}
+.search-panel h2{font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.search-grid{display:grid;grid-template-columns:1fr 1fr 1fr 180px;gap:14px;align-items:end}
+.search-row2{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:14px;align-items:end;margin-top:14px}
+label{font-size:.78rem;font-weight:600;color:var(--navy);display:block;margin-bottom:4px}
+input[type=text],input[type=date]{width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:.86rem;color:var(--text);outline:none;transition:.2s}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(30,139,195,.1)}
+.match-toggle{display:flex;gap:0;border:1.5px solid var(--border);border-radius:7px;overflow:hidden;height:36px}
+.match-toggle label{margin:0;display:flex;align-items:center;padding:0 12px;cursor:pointer;font-size:.8rem;font-weight:500;color:var(--muted);transition:.15s;background:#fff}
+.match-toggle input[type=radio]{display:none}
+.match-toggle input[type=radio]:checked+span{color:var(--white)}
+.match-toggle label:has(input:checked){background:var(--accent);color:#fff}
+.match-toggle label:hover:not(:has(input:checked)){background:var(--bg-alt)}
+.date-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-search{padding:9px 22px;background:var(--primary);color:#fff;border:none;border-radius:7px;font-size:.87rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s;height:36px}
+.btn-search:hover{background:var(--navy)}
+.btn-clear{padding:9px 14px;background:var(--bg);color:var(--muted);border:1.5px solid var(--border);border-radius:7px;font-size:.83rem;cursor:pointer;height:36px;transition:.15s}
+.btn-clear:hover{background:var(--bg-alt);color:var(--text)}
+.btn-export{padding:9px 14px;background:var(--green);color:#fff;border:none;border-radius:7px;font-size:.83rem;font-weight:500;cursor:pointer;height:36px;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-export:hover{filter:brightness(1.1)}
+
+/* ─── Results ─── */
+.results-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;min-height:28px}
+.results-header .count{font-size:.83rem;color:var(--muted)}
+.results-header .count strong{color:var(--text)}
+.results-actions{display:flex;gap:8px}
+
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--white)}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+thead th{background:var(--navy);color:#fff;padding:10px 12px;text-align:left;font-weight:600;font-size:.78rem;white-space:nowrap;position:sticky;top:0}
+thead th:first-child{border-radius:10px 0 0 0}
+thead th:last-child{border-radius:0 10px 0 0}
+tbody tr{border-bottom:1px solid var(--border);transition:.12s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--bg-alt)}
+tbody tr:nth-child(even){background:#fafcfe}
+tbody tr:nth-child(even):hover{background:var(--bg-alt)}
+td{padding:9px 12px;color:var(--text);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+td.filename{font-family:'Courier New',monospace;font-size:.77rem;color:var(--navy)}
+td.piva{font-family:'Courier New',monospace;font-size:.81rem}
+
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:.75rem;font-weight:700}
+.badge.si{background:#d4f5e4;color:#127a40}
+.badge.no{background:#f5e4e4;color:#a83232}
+
+/* ─── Pagination ─── */
+.pagination{display:flex;gap:6px;justify-content:center;margin-top:18px;align-items:center;flex-wrap:wrap}
+.pag-btn{padding:6px 13px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:.8rem;background:var(--white);color:var(--text);transition:.15s}
+.pag-btn:hover{background:var(--bg-alt);border-color:var(--accent)}
+.pag-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.pag-btn:disabled{opacity:.4;cursor:default}
+.pag-info{font-size:.8rem;color:var(--muted);padding:0 8px}
+
+/* ─── Empty/loading states ─── */
+.state-box{text-align:center;padding:48px 24px;color:var(--muted)}
+.state-box svg{width:48px;height:48px;margin:0 auto 12px;display:block;opacity:.35}
+.state-box p{font-size:.9rem}
+.loading-spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─── Alert ─── */
+.alert{padding:10px 14px;border-radius:7px;font-size:.83rem;margin-bottom:14px;display:none}
+.alert.warn{background:#fff8e6;border:1px solid #f5c842;color:#7d5a00}
+.alert.err{background:#fff0f0;border:1px solid #f8b4b4;color:#c0392b}
+
+@media(max-width:800px){
+  .stats-bar{grid-template-columns:repeat(3,1fr)}
+  .search-grid,.search-row2{grid-template-columns:1fr 1fr}
+}
+@media(max-width:500px){
+  .stats-bar{grid-template-columns:1fr 1fr}
+  .search-grid,.search-row2{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-brand">
+    <div class="h-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+    <div>
+      <div>Archiva File DB</div>
+      <div class="h-sub">Ricerca documenti</div>
+    </div>
+  </div>
+  <span class="h-user" id="userBadge"></span>
+  <div class="h-actions">
+    <a href="/admin" class="h-btn" id="adminLink" style="display:none">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/></svg>Admin
+    </a>
+    <button class="h-btn" onclick="doLogout()">Esci</button>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- Stats -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-card"><div class="val" id="st-total">–</div><div class="lbl">Tot. documenti</div></div>
+    <div class="stat-card accent"><div class="val" id="st-archiva">–</div><div class="lbl">In Archiva</div></div>
+    <div class="stat-card accent"><div class="val" id="st-postel">–</div><div class="lbl">In Postel</div></div>
+    <div class="stat-card green"><div class="val" id="st-entrambi">–</div><div class="lbl">In entrambi</div></div>
+    <div class="stat-card orange"><div class="val" id="st-solo">–</div><div class="lbl">Solo Postel</div></div>
+  </div>
+
+  <!-- Search panel -->
+  <div class="search-panel">
+    <h2>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--navy)" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Parametri di ricerca
+    </h2>
+    <div class="alert warn" id="alertMsg"></div>
+    <div class="search-grid">
+      <div>
+        <label for="rs">Ragione Sociale</label>
+        <input type="text" id="rs" placeholder="es. SOLVER">
+      </div>
+      <div>
+        <label for="piva">Partita IVA</label>
+        <input type="text" id="piva" placeholder="es. 11078570964">
+      </div>
+      <div>
+        <label for="nf">Nome File</label>
+        <input type="text" id="nf" placeholder="es. 11078570964_2024">
+      </div>
+      <div>
+        <label>Tipo ricerca file</label>
+        <div class="match-toggle">
+          <label><input type="radio" name="fm" value="partial" checked><span>Parziale</span></label>
+          <label><input type="radio" name="fm" value="exact"><span>Esatto</span></label>
+        </div>
+      </div>
+    </div>
+    <div class="search-row2">
+      <div>
+        <label>Data da</label>
+        <input type="date" id="dateFrom">
+      </div>
+      <div>
+        <label>Data a</label>
+        <input type="date" id="dateTo">
+      </div>
+      <div></div>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <button class="btn-clear" onclick="clearForm()">Pulisci</button>
+        <button class="btn-search" onclick="doSearch(1)">Cerca</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results header -->
+  <div class="results-header">
+    <div class="count" id="resultsCount"></div>
+    <div class="results-actions">
+      <button class="btn-export" id="btnExport" onclick="exportCSV()" style="display:none">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Esporta CSV
+      </button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap" id="tableWrap">
+    <div class="state-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <p>Inserisci i criteri di ricerca e premi <strong>Cerca</strong></p>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination" id="pagination"></div>
+
+</div>
+
+<script>
+const TOKEN_KEY = 'archiva_token';
+const USER_KEY  = 'archiva_user';
+function getToken(){ return sessionStorage.getItem(TOKEN_KEY); }
+function authH(){ return {'Content-Type':'application/json','Authorization':'Bearer '+(getToken()||'')}; }
+
+async function apiFetch(url, opts={}){
+  const isForm = opts.body instanceof FormData;
+  const headers = isForm ? {'Authorization':'Bearer '+(getToken()||'')} : authH();
+  const r = await fetch(url,{...opts,headers});
+  if(r.status===401){ sessionStorage.clear(); window.location.href='/login'; return null; }
+  return r;
+}
+
+async function doLogout(){
+  await fetch('/api/auth/logout',{method:'POST',headers:authH()});
+  sessionStorage.clear(); window.location.href='/login';
+}
+
+async function authInit(){
+  const token=getToken();
+  if(!token){ window.location.href='/login'; return null; }
+  const r=await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+token}});
+  if(!r.ok){ sessionStorage.clear(); window.location.href='/login'; return null; }
+  const {user}=await r.json();
+  document.getElementById('userBadge').textContent=user.nome||user.username;
+  if(user.ruolo==='admin') document.getElementById('adminLink').style.display='inline-flex';
+  return user;
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────
+function renderStats(s){
+  if(!s||!s.total) return;
+  const fmt=n=>n?.toLocaleString('it-IT')||'–';
+  document.getElementById('st-total').textContent=fmt(s.total);
+  document.getElementById('st-archiva').textContent=fmt(s.in_archiva);
+  document.getElementById('st-postel').textContent=fmt(s.in_postel);
+  document.getElementById('st-entrambi').textContent=fmt(s.entrambi);
+  document.getElementById('st-solo').textContent=fmt(s.solo_postel);
+}
+
+// ── Search state ───────────────────────────────────────────────────────────
+let currentPage = 1;
+let allResults  = [];   // store current page results for CSV
+
+async function doSearch(page=1){
+  const params=new URLSearchParams({
+    ragione_sociale: document.getElementById('rs').value.trim(),
+    piva:            document.getElementById('piva').value.trim(),
+    nome_file:       document.getElementById('nf').value.trim(),
+    file_match:      document.querySelector('input[name=fm]:checked').value,
+    date_from:       document.getElementById('dateFrom').value,
+    date_to:         document.getElementById('dateTo').value,
+    page:            page, per_page: 50
+  });
+
+  currentPage = page;
+  showLoading();
+
+  const r = await apiFetch('/api/search?'+params.toString());
+  if(!r) return;
+  const d = await r.json();
+
+  renderStats(d.stats);
+
+  if(!d.ok){
+    showAlert(d.error||d.message||'Errore','err');
+    clearTable(); clearPagination(); clearCount(); return;
+  }
+  if(d.no_filter){
+    showAlert(d.message,'warn');
+    clearTable(); clearPagination(); clearCount(); return;
+  }
+
+  hideAlert();
+  allResults = d.results;
+  renderTable(d.results);
+  renderCount(d.total, page, d.pages, d.per_page);
+  renderPagination(page, d.pages);
+  document.getElementById('btnExport').style.display = d.total>0 ? 'inline-flex' : 'none';
+}
+
+function clearForm(){
+  ['rs','piva','nf','dateFrom','dateTo'].forEach(id=>document.getElementById(id).value='');
+  document.querySelector('input[name=fm][value=partial]').checked=true;
+  hideAlert(); clearTable(); clearPagination(); clearCount();
+  document.getElementById('btnExport').style.display='none';
+}
+
+// ── Table rendering ────────────────────────────────────────────────────────
+function badge(val){
+  const cls = val==='SI' ? 'si' : 'no';
+  const icon = val==='SI' ? '✓' : '✗';
+  return `<span class="badge ${cls}">${icon} ${val}</span>`;
+}
+
+function renderTable(rows){
+  if(!rows||rows.length===0){
+    document.getElementById('tableWrap').innerHTML=`
+      <div class="state-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p>Nessun documento trovato con i criteri inseriti</p>
+      </div>`;
+    return;
+  }
+  const rows_html = rows.map(r=>`
+    <tr>
+      <td class="filename" title="${esc(r.nome_file)}">${esc(r.nome_file)}</td>
+      <td class="piva">${esc(r.piva)}</td>
+      <td>${esc(r.ragione_sociale)}</td>
+      <td>${r.data_doc||'–'}</td>
+      <td>${badge(r.in_archiva)}</td>
+      <td>${badge(r.in_postel)}</td>
+    </tr>`).join('');
+  document.getElementById('tableWrap').innerHTML=`
+    <table>
+      <thead><tr>
+        <th>Nome File</th><th>P. IVA</th><th>Ragione Sociale</th>
+        <th>Data</th><th>Archiva</th><th>Postel</th>
+      </tr></thead>
+      <tbody>${rows_html}</tbody>
+    </table>`;
+}
+
+function clearTable(){
+  document.getElementById('tableWrap').innerHTML=`
+    <div class="state-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <p>Inserisci i criteri di ricerca e premi <strong>Cerca</strong></p>
+    </div>`;
+}
+
+function renderCount(total, page, pages, perPage){
+  if(total===0){ document.getElementById('resultsCount').textContent=''; return; }
+  const from = (page-1)*perPage+1;
+  const to   = Math.min(page*perPage, total);
+  document.getElementById('resultsCount').innerHTML=
+    `<strong>${total.toLocaleString('it-IT')}</strong> documenti trovati &mdash; pagina ${page}/${pages} (${from}–${to})`;
+}
+function clearCount(){ document.getElementById('resultsCount').textContent=''; }
+
+function renderPagination(page, pages){
+  const el=document.getElementById('pagination');
+  if(pages<=1){ el.innerHTML=''; return; }
+  let html='';
+  html+=`<button class="pag-btn" onclick="doSearch(1)" ${page===1?'disabled':''}>««</button>`;
+  html+=`<button class="pag-btn" onclick="doSearch(${page-1})" ${page===1?'disabled':''}>‹</button>`;
+  const start=Math.max(1,page-3), end=Math.min(pages,page+3);
+  if(start>1) html+=`<span class="pag-info">…</span>`;
+  for(let p=start;p<=end;p++)
+    html+=`<button class="pag-btn ${p===page?'active':''}" onclick="doSearch(${p})">${p}</button>`;
+  if(end<pages) html+=`<span class="pag-info">…</span>`;
+  html+=`<button class="pag-btn" onclick="doSearch(${page+1})" ${page===pages?'disabled':''}>›</button>`;
+  html+=`<button class="pag-btn" onclick="doSearch(${pages})" ${page===pages?'disabled':''}>»»</button>`;
+  el.innerHTML=html;
+}
+function clearPagination(){ document.getElementById('pagination').innerHTML=''; }
+
+function showLoading(){
+  document.getElementById('tableWrap').innerHTML=`<div class="state-box"><div class="loading-spinner"></div><p>Ricerca in corso…</p></div>`;
+  document.getElementById('pagination').innerHTML='';
+  document.getElementById('resultsCount').textContent='';
+}
+
+function showAlert(msg,type='warn'){
+  const el=document.getElementById('alertMsg');
+  el.textContent=msg; el.className='alert '+type; el.style.display='block';
+}
+function hideAlert(){
+  const el=document.getElementById('alertMsg');
+  el.style.display='none'; el.textContent='';
+}
+
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── CSV Export ─────────────────────────────────────────────────────────────
+async function exportCSV(){
+  // Fetch ALL results (no pagination)
+  const params=new URLSearchParams({
+    ragione_sociale: document.getElementById('rs').value.trim(),
+    piva:            document.getElementById('piva').value.trim(),
+    nome_file:       document.getElementById('nf').value.trim(),
+    file_match:      document.querySelector('input[name=fm]:checked').value,
+    date_from:       document.getElementById('dateFrom').value,
+    date_to:         document.getElementById('dateTo').value,
+    page:1, per_page:10000
+  });
+  const r = await apiFetch('/api/search?'+params.toString());
+  if(!r) return;
+  const d = await r.json();
+  if(!d.results||d.results.length===0) return;
+
+  const header=['Nome File','P. IVA','Ragione Sociale','Data','Presente in Archiva','Presente in Postel'];
+  const rows=d.results.map(r=>[
+    r.nome_file, r.piva, r.ragione_sociale, r.data_doc||'', r.in_archiva, r.in_postel
+  ].map(v=>'"'+(String(v||'').replace(/"/g,'""'))+'"').join(','));
+  const csv=[header.join(','),...rows].join('\r\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='archiva_risultati.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Enter to search ────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{ if(e.key==='Enter') doSearch(1); });
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(async()=>{
+  await authInit();
+  // Load stats
+  const r = await apiFetch('/api/stats');
+  if(r){ const s=await r.json(); renderStats(s); }
+})();
+</script>
+</body>
+</html>

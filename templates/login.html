@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Archiva File DB – Accesso</title>
+<style>
+:root{
+  --primary:#00417A;--navy:#1B3A6B;--accent:#1E8BC3;
+  --bg:#F4F7FA;--border:#D0D8E4;--text:#262626;--muted:#6B7A93;--white:#fff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;background:var(--bg);display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',system-ui,sans-serif}
+.card{background:var(--white);border-radius:12px;box-shadow:0 4px 24px rgba(0,65,122,.13);padding:44px 40px 40px;width:100%;max-width:400px}
+.logo{display:flex;align-items:center;gap:12px;margin-bottom:32px}
+.logo-icon{width:44px;height:44px;background:var(--primary);border-radius:10px;display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.logo-text h1{font-size:1.15rem;font-weight:700;color:var(--primary)}
+.logo-text p{font-size:.78rem;color:var(--muted);margin-top:1px}
+label{display:block;font-size:.82rem;font-weight:600;color:var(--navy);margin-bottom:5px}
+input{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:7px;font-size:.92rem;color:var(--text);background:#fff;transition:.2s;outline:none}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(30,139,195,.12)}
+.field{margin-bottom:18px}
+button[type=submit]{width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;margin-top:6px;transition:.15s}
+button[type=submit]:hover{background:var(--navy)}
+.err{background:#fff0f0;border:1px solid #f8b4b4;border-radius:7px;padding:10px 13px;font-size:.85rem;color:#c0392b;margin-bottom:16px;display:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    </div>
+    <div class="logo-text">
+      <h1>Archiva File DB</h1>
+      <p>Ricerca documenti Archiva / Postel</p>
+    </div>
+  </div>
+  <div class="err" id="errMsg"></div>
+  <form onsubmit="doLogin(event)">
+    <div class="field">
+      <label for="username">Username</label>
+      <input id="username" type="text" placeholder="nome.cognome" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" required>
+    </div>
+    <button type="submit" id="btn">Accedi</button>
+  </form>
+</div>
+<script>
+async function doLogin(e){
+  e.preventDefault();
+  const btn=document.getElementById('btn');
+  const err=document.getElementById('errMsg');
+  btn.textContent='Accesso…'; btn.disabled=true; err.style.display='none';
+  try{
+    const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:document.getElementById('username').value.trim(),
+      password:document.getElementById('password').value})});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.detail||d.error||'Credenziali non valide');
+    sessionStorage.setItem('archiva_token',d.token);
+    sessionStorage.setItem('archiva_user',JSON.stringify(d.user));
+    window.location.href='/';
+  }catch(ex){
+    err.textContent=ex.message; err.style.display='block';
+    btn.textContent='Accedi'; btn.disabled=false;
+  }
+}
+if(sessionStorage.getItem('archiva_token')) window.location.href='/';
+</script>
+</body>
+</html>
