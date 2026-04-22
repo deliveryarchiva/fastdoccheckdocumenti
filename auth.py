@@ -45,6 +45,7 @@ def seed_users():
         {"nome": "Marco Pastore",     "username": "marco.pastore",     "ruolo": "admin", "role": "Head of Project Delivery"},
         {"nome": "Paolo Gandini",      "username": "paolo.gandini",      "ruolo": "admin", "role": "Delivery & Customer Service Director"},
         {"nome": "Chiara Pettenuzzo", "username": "chiara.pettenuzzo", "ruolo": "admin", "role": "Service Delivery Manager"},
+        {"nome": "Helpdesk",          "username": "helpdesk",           "ruolo": "user",  "role": "Helpdesk"},
     ]:
         save_user({**u, "password": pwd})
 

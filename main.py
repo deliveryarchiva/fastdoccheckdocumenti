@@ -21,11 +21,12 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Archiva File DB")
 templates = Jinja2Templates(directory="templates")
 
-DATA_DIR   = Path(os.getenv("RAILWAY_VOLUME_MOUNT_PATH", "data"))
+DATA_DIR    = Path(os.getenv("RAILWAY_VOLUME_MOUNT_PATH", "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-EXCEL_PATH = DATA_DIR / "database.xlsx"
+EXCEL_PATH  = DATA_DIR / "database.xlsx"
+CSV_PATH    = DATA_DIR / "archiva.csv"
 
-# ── In-memory database ──────────────────────────────────────────────────────
+# ── In-memory database ───────────────────────────────────────────────────────
 db_records: list = []
 db_stats:   dict = {}
 db_loaded:  bool = False
@@ -33,17 +34,16 @@ db_loaded:  bool = False
 
 def reload_db():
     global db_records, db_stats, db_loaded
-    if EXCEL_PATH.exists():
-        logger.info(f"Loading Excel from {EXCEL_PATH} …")
-        db_records = load_data(str(EXCEL_PATH))
-        db_stats   = compute_stats(db_records)
-        db_loaded  = True
-        logger.info(f"Done – {len(db_records):,} records")
-    else:
-        logger.warning("Excel file not found – search will be unavailable")
-        db_records = []
-        db_stats   = {}
-        db_loaded  = False
+    if not EXCEL_PATH.exists():
+        logger.warning("Excel non trovato — DB non disponibile")
+        db_records = []; db_stats = {}; db_loaded = False
+        return
+    csv_path = str(CSV_PATH) if CSV_PATH.exists() else None
+    logger.info(f"Loading DB — Excel: {EXCEL_PATH}, CSV: {csv_path or 'non presente'}")
+    db_records = load_data(str(EXCEL_PATH), csv_path=csv_path)
+    db_stats   = compute_stats(db_records)
+    db_loaded  = True
+    logger.info(f"DB pronto — {len(db_records):,} record | quadratura {db_stats.get('quadratura')}%")
 
 
 @app.on_event("startup")
@@ -52,7 +52,7 @@ async def startup():
     reload_db()
 
 
-# ── HTML pages ───────────────────────────────────────────────────────────────
+# ── HTML pages ────────────────────────────────────────────────────────────────
 @app.get("/login", response_class=HTMLResponse)
 def page_login(request: Request):
     return templates.TemplateResponse(request=request, name="login.html")
@@ -66,14 +66,14 @@ def page_admin(request: Request):
     return templates.TemplateResponse(request=request, name="admin.html")
 
 
-# ── Auth endpoints ───────────────────────────────────────────────────────────
+# ── Auth ──────────────────────────────────────────────────────────────────────
 @app.post("/api/auth/login")
 async def api_login(request: Request):
-    body     = await request.json()
+    body = await request.json()
     username = (body.get("username") or "").strip().lower()
     password = body.get("password") or ""
-    users    = load_users()
-    user     = users.get(username)
+    users = load_users()
+    user  = users.get(username)
     if not user or not verify_password(password, user["password"]):
         raise HTTPException(401, "Credenziali non valide")
     token = create_session(user)
@@ -105,7 +105,7 @@ async def api_change_password(request: Request, user=Depends(get_current_user)):
     return {"ok": True}
 
 
-# ── Admin: users ─────────────────────────────────────────────────────────────
+# ── Admin: users ──────────────────────────────────────────────────────────────
 @app.get("/api/admin/users")
 def api_get_users(user=Depends(get_current_user)):
     require_admin(user)
@@ -131,11 +131,9 @@ async def api_update_user(username: str, request: Request, user=Depends(get_curr
     body  = await request.json()
     users = load_users()
     u     = users.get(username.lower())
-    if not u:
-        raise HTTPException(404, "Utente non trovato")
+    if not u: raise HTTPException(404, "Utente non trovato")
     for field in ("nome", "ruolo", "role"):
-        if field in body:
-            u[field] = body[field]
+        if field in body: u[field] = body[field]
     if body.get("password"):
         u["password"] = hash_password(body["password"])
     save_user(u)
@@ -150,50 +148,65 @@ def api_delete_user(username: str, user=Depends(get_current_user)):
     return {"ok": True}
 
 
-# ── Admin: Excel upload & reload ─────────────────────────────────────────────
+# ── Admin: Excel upload (Postel source) ───────────────────────────────────────
 @app.post("/api/admin/upload")
-async def api_upload(
-    request: Request,
-    file: UploadFile = File(...),
-    user=Depends(get_current_user),
-):
+async def api_upload_excel(file: UploadFile = File(...), user=Depends(get_current_user)):
     require_admin(user)
     if not file.filename.lower().endswith(".xlsx"):
         raise HTTPException(400, "Sono accettati solo file .xlsx")
-
     tmp = DATA_DIR / "database_tmp.xlsx"
     with open(tmp, "wb") as f:
         shutil.copyfileobj(file.file, f)
     tmp.rename(EXCEL_PATH)
-
+    # Invalidate cache
+    cache = Path(str(EXCEL_PATH) + ".cache.pkl")
+    if cache.exists(): cache.unlink()
     reload_db()
-    return {
-        "ok":      True,
-        "message": f"File caricato correttamente. {len(db_records):,} record elaborati.",
-        "stats":   db_stats,
-    }
+    return {"ok": True,
+            "message": f"Excel caricato — {len(db_records):,} record elaborati.",
+            "stats": db_stats}
+
+
+# ── Admin: CSV upload (Archiva source) ───────────────────────────────────────
+@app.post("/api/admin/upload-csv")
+async def api_upload_csv(file: UploadFile = File(...), user=Depends(get_current_user)):
+    require_admin(user)
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(400, "Sono accettati solo file .csv")
+    tmp = DATA_DIR / "archiva_tmp.csv"
+    with open(tmp, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    tmp.rename(CSV_PATH)
+    # Invalidate cache so it's rebuilt with new CSV
+    cache = Path(str(EXCEL_PATH) + ".cache.pkl")
+    if cache.exists(): cache.unlink()
+    reload_db()
+    quad = db_stats.get("quadratura", 0)
+    return {"ok": True,
+            "message": f"CSV Archiva caricato — {len(db_records):,} record | quadratura {quad}%",
+            "stats": db_stats}
+
 
 @app.post("/api/admin/reload")
 def api_reload(user=Depends(get_current_user)):
     require_admin(user)
     reload_db()
-    return {
-        "ok":      True,
-        "message": f"Dati ricaricati. {len(db_records):,} record.",
-        "stats":   db_stats,
-    }
+    return {"ok": True,
+            "message": f"Dati ricaricati — {len(db_records):,} record.",
+            "stats": db_stats}
 
 @app.get("/api/admin/db-status")
 def api_db_status(user=Depends(get_current_user)):
     require_admin(user)
     return {
-        "loaded":     db_loaded,
-        "file_exists": EXCEL_PATH.exists(),
-        "stats":      db_stats,
+        "loaded":            db_loaded,
+        "excel_exists":      EXCEL_PATH.exists(),
+        "csv_exists":        CSV_PATH.exists(),
+        "stats":             db_stats,
     }
 
 
-# ── Search ───────────────────────────────────────────────────────────────────
+# ── Search ────────────────────────────────────────────────────────────────────
 @app.get("/api/search")
 def api_search(
     ragione_sociale: str = "",
@@ -211,21 +224,16 @@ def api_search(
     has_filter = any([ragione_sociale, piva, nome_file, date_from, date_to, anno, mese])
 
     if not db_loaded:
-        return {
-            "ok": False,
-            "error": "Database non caricato. Caricare il file Excel dalla sezione Admin.",
-            "total": 0, "page": 1, "pages": 0, "per_page": per_page,
-            "results": [], "stats": db_stats,
-        }
+        return {"ok": False,
+                "error": "Database non caricato. Caricare i file dalla sezione Admin.",
+                "total": 0, "page": 1, "pages": 0, "per_page": per_page,
+                "results": [], "stats": db_stats}
 
     if not has_filter:
-        return {
-            "ok": True,
-            "no_filter": True,
-            "message": "Inserire almeno un criterio di ricerca.",
-            "total": 0, "page": 1, "pages": 0, "per_page": per_page,
-            "results": [], "stats": db_stats,
-        }
+        return {"ok": True, "no_filter": True,
+                "message": "Inserire almeno un criterio di ricerca.",
+                "total": 0, "page": 1, "pages": 0, "per_page": per_page,
+                "results": [], "stats": db_stats}
 
     results = search_records(
         db_records,
@@ -245,19 +253,14 @@ def api_search(
     page     = max(1, min(page, pages))
     start    = (page - 1) * per_page
 
-    return {
-        "ok":       True,
-        "total":    total,
-        "page":     page,
-        "pages":    pages,
-        "per_page": per_page,
-        "results":  results[start: start + per_page],
-        "stats":    db_stats,
-    }
+    return {"ok": True, "total": total, "page": page, "pages": pages,
+            "per_page": per_page,
+            "results": results[start: start + per_page],
+            "stats": db_stats}
+
 
 @app.get("/api/filters")
 def api_filters(user=Depends(get_current_user)):
-    """Return sorted list of unique years and months present in the dataset."""
     years  = sorted({r["data_doc"][:4] for r in db_records if r["data_doc"]}, reverse=True)
     months = sorted({r["data_doc"][5:7] for r in db_records if r["data_doc"]})
     return {"years": years, "months": months}

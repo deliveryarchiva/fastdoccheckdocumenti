@@ -29,7 +29,7 @@ header{background:var(--primary);color:#fff;padding:0 24px;height:56px;display:f
 .page{max-width:1400px;margin:0 auto;padding:24px 20px}
 
 /* ─── Stats bar ─── */
-.stats-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.stats-bar{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
 .stat-card{background:var(--white);border-radius:9px;padding:14px 16px;border:1px solid var(--border);text-align:center}
 .stat-card .val{font-size:1.4rem;font-weight:700;color:var(--primary);line-height:1}
 .stat-card .lbl{font-size:.73rem;color:var(--muted);margin-top:4px}
@@ -105,7 +105,7 @@ td.piva{font-family:'Courier New',monospace;font-size:.81rem}
 .alert.warn{background:#fff8e6;border:1px solid #f5c842;color:#7d5a00}
 .alert.err{background:#fff0f0;border:1px solid #f8b4b4;color:#c0392b}
 
-@media(max-width:800px){
+@media(max-width:900px){
   .stats-bar{grid-template-columns:repeat(3,1fr)}
   .search-grid,.search-row2{grid-template-columns:1fr 1fr}
 }
@@ -142,6 +142,7 @@ td.piva{font-family:'Courier New',monospace;font-size:.81rem}
     <div class="stat-card accent"><div class="val" id="st-archiva">–</div><div class="lbl">In Archiva</div></div>
     <div class="stat-card accent"><div class="val" id="st-postel">–</div><div class="lbl">In Postel</div></div>
     <div class="stat-card green"><div class="val" id="st-entrambi">–</div><div class="lbl">In entrambi</div></div>
+    <div class="stat-card green"><div class="val" id="st-quadratura">–</div><div class="lbl">Quadratura %</div></div>
     <div class="stat-card orange"><div class="val" id="st-solo">–</div><div class="lbl">Solo Postel</div></div>
   </div>
 
@@ -268,6 +269,10 @@ function renderStats(s){
   document.getElementById('st-postel').textContent=fmt(s.in_postel);
   document.getElementById('st-entrambi').textContent=fmt(s.entrambi);
   document.getElementById('st-solo').textContent=fmt(s.solo_postel);
+  const qEl=document.getElementById('st-quadratura');
+  const q=s.quadratura??0;
+  qEl.textContent=q+'%';
+  qEl.style.color = q>=100 ? 'var(--green)' : q>=90 ? 'var(--orange)' : 'inherit';
 }
 
 // ── Search state ───────────────────────────────────────────────────────────

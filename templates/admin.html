@@ -24,7 +24,7 @@ header{background:var(--primary);color:#fff;padding:0 24px;height:56px;display:f
 .h-btn{background:rgba(255,255,255,.15);border:none;color:#fff;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:.78rem;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:.15s}
 .h-btn:hover{background:rgba(255,255,255,.28)}
 
-.page{max-width:1100px;margin:0 auto;padding:24px 20px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.page{max-width:1200px;margin:0 auto;padding:24px 20px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .full{grid-column:1/-1}
 
 .card{background:var(--white);border-radius:10px;border:1px solid var(--border);padding:22px 22px 18px}
@@ -45,7 +45,18 @@ header{background:var(--primary);color:#fff;padding:0 24px;height:56px;display:f
 .btn-outline{padding:8px 16px;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);border-radius:7px;font-size:.83rem;cursor:pointer;transition:.15s;width:100%;margin-top:8px}
 .btn-outline:hover{background:var(--bg-alt);color:var(--text);border-color:var(--accent)}
 
-/* DB status */
+/* DB status cards */
+.db-stat-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;text-align:center}
+.db-stat-card.accent{border-color:rgba(30,139,195,.3);background:#f0f8ff}
+.db-stat-card.green{border-color:rgba(26,158,92,.3);background:#f0faf4}
+.db-stat-card.orange{border-color:rgba(232,130,12,.3);background:#fff8f0}
+.dsv{font-size:1.3rem;font-weight:700;color:var(--primary);line-height:1.1}
+.dsv.quad{color:var(--green)}
+.db-stat-card.green .dsv{color:var(--green)}
+.db-stat-card.accent .dsv{color:var(--accent)}
+.db-stat-card.orange .dsv{color:var(--orange)}
+.dsk{font-size:.72rem;color:var(--muted);margin-top:3px}
+/* legacy db-stat kept for compatibility */
 .db-stat{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bg)}
 .db-stat:last-child{border:none}
 .db-stat .k{font-size:.8rem;color:var(--muted)}
@@ -102,37 +113,54 @@ td{padding:9px 11px}
 
 <div class="page">
 
-  <!-- Upload / DB status -->
+  <!-- Upload Excel (Postel) -->
   <div class="card">
     <h2>
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      Carica Database Excel
+      Carica Excel (Postel)
     </h2>
-    <div class="upload-zone" id="uploadZone">
-      <input type="file" accept=".xlsx" id="fileInput" onchange="onFileChange(event)">
+    <div class="upload-zone" id="uploadZoneExcel">
+      <input type="file" accept=".xlsx" id="fileInputExcel" onchange="onFileChange(event,'excel')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M12 8v8"/></svg>
-      <div class="uz-text">Trascina qui il file <strong>database.xlsx</strong><br>oppure clicca per selezionare</div>
-      <div class="uz-file" id="fileName"></div>
+      <div class="uz-text">Trascina il file <strong>.xlsx</strong> con il foglio Postel<br>oppure clicca per selezionare</div>
+      <div class="uz-file" id="fileNameExcel"></div>
     </div>
-    <button class="btn-primary" id="btnUpload" onclick="doUpload()" disabled>Carica e analizza</button>
+    <button class="btn-primary" id="btnUploadExcel" onclick="doUploadExcel()" disabled>Carica Excel</button>
     <button class="btn-outline" onclick="doReload()">↻ Ricarica dati esistenti</button>
-    <div id="uploadAlert"></div>
+    <div id="uploadAlertExcel"></div>
+  </div>
+
+  <!-- Upload CSV (Archiva) -->
+  <div class="card">
+    <h2>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Carica CSV (Archiva Requiro)
+    </h2>
+    <div class="upload-zone" id="uploadZoneCsv">
+      <input type="file" accept=".csv" id="fileInputCsv" onchange="onFileChange(event,'csv')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <div class="uz-text">Trascina il file <strong>fastweb_doc_in_requiro.csv</strong><br>oppure clicca per selezionare</div>
+      <div class="uz-file" id="fileNameCsv"></div>
+    </div>
+    <button class="btn-primary" id="btnUploadCsv" onclick="doUploadCsv()" disabled>Carica CSV Archiva</button>
+    <div id="uploadAlertCsv"></div>
   </div>
 
   <!-- DB Status -->
-  <div class="card">
+  <div class="card full" style="grid-column:span 2">
     <h2>
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
       Stato Database
     </h2>
-    <div id="dbStatusContent">
-      <div class="db-stat"><span class="k">Stato</span><span class="v" id="s-stato">–</span></div>
-      <div class="db-stat"><span class="k">Documenti totali</span><span class="v" id="s-total">–</span></div>
-      <div class="db-stat"><span class="k">Presenti in Archiva</span><span class="v" id="s-archiva">–</span></div>
-      <div class="db-stat"><span class="k">Presenti in Postel</span><span class="v" id="s-postel">–</span></div>
-      <div class="db-stat"><span class="k">Presenti in entrambi</span><span class="v" id="s-entrambi">–</span></div>
-      <div class="db-stat"><span class="k">Solo Postel (non in Archiva)</span><span class="v" id="s-solo-postel" style="color:var(--orange)">–</span></div>
-      <div class="db-stat"><span class="k">Solo Archiva (non in Postel)</span><span class="v" id="s-solo-archiva">–</span></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+      <div class="db-stat-card"><div class="dsv" id="s-stato">–</div><div class="dsk">Stato</div></div>
+      <div class="db-stat-card"><div class="dsv" id="s-total">–</div><div class="dsk">Totale</div></div>
+      <div class="db-stat-card accent"><div class="dsv" id="s-archiva">–</div><div class="dsk">In Archiva</div></div>
+      <div class="db-stat-card accent"><div class="dsv" id="s-postel">–</div><div class="dsk">In Postel</div></div>
+      <div class="db-stat-card green"><div class="dsv" id="s-entrambi">–</div><div class="dsk">In entrambi</div></div>
+      <div class="db-stat-card green"><div class="dsv quad" id="s-quadratura">–</div><div class="dsk">Quadratura %</div></div>
+      <div class="db-stat-card orange"><div class="dsv" id="s-solo-postel">–</div><div class="dsk">Solo Postel</div></div>
+      <div class="db-stat-card"><div class="dsv" id="s-sources">–</div><div class="dsk">Sorgenti attive</div></div>
     </div>
   </div>
 
@@ -227,38 +255,70 @@ async function loadDbStatus(){
     document.getElementById('s-postel').textContent=fmt(d.stats.in_postel);
     document.getElementById('s-entrambi').textContent=fmt(d.stats.entrambi);
     document.getElementById('s-solo-postel').textContent=fmt(d.stats.solo_postel);
-    document.getElementById('s-solo-archiva').textContent=fmt(d.stats.solo_archiva);
+    const q=d.stats.quadratura??0;
+    const qEl=document.getElementById('s-quadratura');
+    qEl.textContent=q+'%';
+    qEl.style.color = q>=100 ? 'var(--green)' : q>=90 ? 'var(--orange)' : 'var(--red)';
   }
+  const src=[];
+  if(d.excel_exists) src.push('Excel ✓');
+  if(d.csv_exists)   src.push('CSV Archiva ✓');
+  document.getElementById('s-sources').innerHTML=src.length
+    ? src.map(s=>`<span style="display:block;font-size:.78rem;color:var(--green)">${s}</span>`).join('')
+    : '<span style="color:var(--red);font-size:.78rem">Nessuna sorgente</span>';
 }
 
 // ── Upload ─────────────────────────────────────────────────────────────────
-let selectedFile=null;
-function onFileChange(e){
-  selectedFile=e.target.files[0];
-  document.getElementById('fileName').textContent=selectedFile?selectedFile.name:'';
-  document.getElementById('btnUpload').disabled=!selectedFile;
+let selectedExcel=null, selectedCsv=null;
+
+function onFileChange(e, type){
+  const file=e.target.files[0];
+  if(type==='excel'){
+    selectedExcel=file;
+    document.getElementById('fileNameExcel').textContent=file?file.name:'';
+    document.getElementById('btnUploadExcel').disabled=!file;
+  } else {
+    selectedCsv=file;
+    document.getElementById('fileNameCsv').textContent=file?file.name:'';
+    document.getElementById('btnUploadCsv').disabled=!file;
+  }
 }
-async function doUpload(){
-  if(!selectedFile) return;
-  const btn=document.getElementById('btnUpload');
+
+async function doUploadExcel(){
+  if(!selectedExcel) return;
+  const btn=document.getElementById('btnUploadExcel');
   btn.disabled=true; btn.textContent='Caricamento…';
-  setAlert('uploadAlert','Caricamento e analisi in corso, attendere…','ok');
+  setAlert('uploadAlertExcel','Caricamento in corso, attendere (~60-90s)…','ok');
   try{
-    const fd=new FormData(); fd.append('file',selectedFile);
+    const fd=new FormData(); fd.append('file',selectedExcel);
     const r=await apiFetch('/api/admin/upload',{method:'POST',body:fd});
     const d=await r.json();
-    if(d.ok){
-      setAlert('uploadAlert',d.message,'ok');
-      await loadDbStatus();
-    } else setAlert('uploadAlert',d.detail||'Errore','err');
-  }catch(ex){ setAlert('uploadAlert',ex.message,'err'); }
-  btn.disabled=false; btn.textContent='Carica e analizza';
+    setAlert('uploadAlertExcel',d.ok?d.message:(d.detail||'Errore'),d.ok?'ok':'err');
+    if(d.ok) await loadDbStatus();
+  }catch(ex){ setAlert('uploadAlertExcel',ex.message,'err'); }
+  btn.disabled=false; btn.textContent='Carica Excel';
 }
+
+async function doUploadCsv(){
+  if(!selectedCsv) return;
+  const btn=document.getElementById('btnUploadCsv');
+  btn.disabled=true; btn.textContent='Caricamento…';
+  setAlert('uploadAlertCsv','Caricamento CSV in corso, attendere (~20-30s)…','ok');
+  try{
+    const fd=new FormData(); fd.append('file',selectedCsv);
+    const r=await apiFetch('/api/admin/upload-csv',{method:'POST',body:fd});
+    const d=await r.json();
+    setAlert('uploadAlertCsv',d.ok?d.message:(d.detail||'Errore'),d.ok?'ok':'err');
+    if(d.ok) await loadDbStatus();
+  }catch(ex){ setAlert('uploadAlertCsv',ex.message,'err'); }
+  btn.disabled=false; btn.textContent='Carica CSV Archiva';
+}
+
 async function doReload(){
-  setAlert('uploadAlert','Ricaricamento in corso…','ok');
+  setAlert('uploadAlertExcel','Ricaricamento in corso…','ok');
   const r=await apiFetch('/api/admin/reload',{method:'POST'});
   const d=await r.json();
-  setAlert('uploadAlert',d.message,d.ok?'ok':'err');
+  setAlert('uploadAlertExcel',d.message,d.ok?'ok':'err');
   if(d.ok) await loadDbStatus();
 }
 
